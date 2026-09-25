@@ -1,0 +1,12 @@
+services:
+  waveshare-mqtt:
+    build: .
+    container_name: waveshare-mqtt
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MODBUS_PORT: ${RS485_DEVICE:-/dev/ttyUSB0}
+    devices:
+      - "${RS485_DEVICE:-/dev/ttyUSB0}:${RS485_DEVICE:-/dev/ttyUSB0}"
