@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import struct
 from typing import Protocol
 
 import minimalmodbus
@@ -13,6 +14,9 @@ logger = logging.getLogger(__name__)
 class Instrument(Protocol):
     def write_bit(self, register: int, value: int, functioncode: int = 5) -> None: ...
     def read_bits(self, register: int, number_of_bits: int, functioncode: int = 1) -> list[int]: ...
+    def read_register(self, register: int, number_of_decimals: int = 0,
+                      functioncode: int = 3, signed: bool = False) -> int: ...
+    def _perform_command(self, functioncode: int, payload_to_slave: bytes) -> bytes: ...
 
 
 class RelayController:
@@ -48,6 +52,23 @@ class RelayController:
         self.instrument.write_bit(register, int(enabled), functioncode=5)
         logger.debug("Relay write completed channel=%d", channel)
 
+    def flash_relay(self, channel: int, duration_seconds: float) -> None:
+        self._validate_channel(channel)
+        if duration_seconds <= 0:
+            raise ValueError("duration must be greater than zero")
+
+        duration_units = round(duration_seconds * 10)
+        if not 1 <= duration_units <= 0x7FFF:
+            raise ValueError("duration must be between 0.1 and 3276.7 seconds")
+
+        register = 0x0200 + channel - 1
+        payload = struct.pack(">HH", register, duration_units)
+        logger.debug(
+            "Flashing relay channel=%d register=%d duration=%.1fs",
+            channel, register, duration_units / 10,
+        )
+        self.instrument._perform_command(5, payload)
+
     def relay_states(self) -> list[bool]:
         logger.debug("Reading relay states from register=%d", self.relay_start_register)
         values = self.instrument.read_bits(self.relay_start_register, self.CHANNELS, functioncode=1)
@@ -61,6 +82,13 @@ class RelayController:
         states = [bool(value) for value in values]
         logger.debug("Digital input states read: %s", states)
         return states
+
+    def software_version(self) -> str:
+        """Read and format the device software version from register 0x8000."""
+        raw_version = self.instrument.read_register(0x8000, functioncode=3, signed=False)
+        version = f"V{raw_version // 100}.{raw_version % 100:02d}"
+        logger.debug("Device software version read: %s", version)
+        return version
 
     @classmethod
     def _validate_channel(cls, channel: int) -> None:

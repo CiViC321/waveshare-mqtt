@@ -108,11 +108,20 @@ Commands accept `ON`, `OFF`, `1`, `0`, `true`, `false`, `high`, or `low`:
 | Topic | Direction | Meaning |
 | --- | --- | --- |
 | `waveshare/relay/1/set` | MQTT to device | Set relay channel 1 |
+| `waveshare/relay/1/flash` | MQTT to device | Flash relay channel 1 on for the specified number of seconds |
 | `waveshare/relay/all/set` | MQTT to device | Set all eight relays |
 | `waveshare/relay/1/state` | Device to MQTT | Retained relay state |
 | `waveshare/input/1/state` | Device to MQTT | Retained digital input state |
 
 Replace `waveshare/relay` with `MQTT_BASE_TOPIC` when configured. Relay and input channels are numbered 1 through 8 in MQTT topics; Modbus register offsets are zero-based by default.
+
+To flash a relay on for a specified duration, publish the duration in seconds to its `flash` topic. Decimal values are supported; the bridge converts the value to the device's 100 ms units and uses the relay's native timed flash command:
+
+```bash
+mosquitto_pub -t waveshare/relay/3/flash -m 1.5
+```
+
+The example turns relay 3 on for 1.5 seconds. Supported durations are 0.1 through 3276.7 seconds.
 
 When the MQTT connection is established, the bridge publishes retained Home Assistant MQTT Discovery configuration under `MQTT_DISCOVERY_PREFIX` (default `homeassistant`). Home Assistant will create eight switches grouped under one device named `Waveshare 8-Channel Relay`.
 

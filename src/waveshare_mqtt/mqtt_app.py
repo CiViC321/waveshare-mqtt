@@ -55,8 +55,10 @@ class MqttRelayApp:
         logger.debug("MQTT connected reason_code=%s flags=%s", reason_code, flags)
         topic = f"{self.settings.mqtt_base_topic}/relay/+/set"
         client.subscribe(topic)
+        flash_topic = f"{self.settings.mqtt_base_topic}/relay/+/flash"
+        client.subscribe(flash_topic)
         client.subscribe(f"{self.settings.mqtt_base_topic}/relay/all/set")
-        logger.info("Connected to MQTT; subscribed to %s", topic)
+        logger.info("Connected to MQTT; subscribed to %s and %s", topic, flash_topic)
         self.publish_home_assistant_discovery()
         self.publish_states()
 
@@ -65,16 +67,21 @@ class MqttRelayApp:
         payload = message.payload.decode("utf-8", errors="replace").strip().lower()
         logger.debug("MQTT message received topic=%s qos=%d retain=%s", topic, message.qos, message.retain)
         prefix = f"{self.settings.mqtt_base_topic}/relay/"
-        suffix = "/set"
         try:
-            target = topic[len(prefix):-len(suffix)]
-            enabled = self._parse_state(payload)
-            if target == "all":
-                for channel in range(1, RelayController.CHANNELS + 1):
-                    self.controller.set_relay(channel, enabled)
+            if topic.endswith("/flash"):
+                target = topic[len(prefix):-len("/flash")]
+                self.controller.flash_relay(int(target), self._parse_duration(payload))
+                logger.info("Flashed relay channel=%s duration=%ss", target, payload)
             else:
-                self.controller.set_relay(int(target), enabled)
-            logger.info("Set relay target=%s enabled=%s", target, enabled)
+                suffix = "/set"
+                target = topic[len(prefix):-len(suffix)]
+                enabled = self._parse_state(payload)
+                if target == "all":
+                    for channel in range(1, RelayController.CHANNELS + 1):
+                        self.controller.set_relay(channel, enabled)
+                else:
+                    self.controller.set_relay(int(target), enabled)
+                logger.info("Set relay target=%s enabled=%s", target, enabled)
             self.publish_states()
         except (ValueError, IndexError) as exc:
             logger.warning("Ignoring invalid MQTT command topic=%s payload=%r: %s", topic, payload, exc)
@@ -98,6 +105,7 @@ class MqttRelayApp:
             "name": "Waveshare 8-Channel Relay",
             "manufacturer": "Waveshare",
             "model": "Modbus RTU 8-CH Relay Module (D)",
+            "sw_version": self.controller.software_version(),
         }
         for channel in range(1, RelayController.CHANNELS + 1):
             unique_id = f"{self.settings.mqtt_client_id}_relay_{channel}"
@@ -134,3 +142,10 @@ class MqttRelayApp:
         if payload in {"off", "0", "false", "low"}:
             return False
         raise ValueError("payload must be ON/OFF, 1/0, true/false, or high/low")
+
+    @staticmethod
+    def _parse_duration(payload: str) -> float:
+        duration = float(payload)
+        if duration <= 0:
+            raise ValueError("duration must be greater than zero")
+        return duration
