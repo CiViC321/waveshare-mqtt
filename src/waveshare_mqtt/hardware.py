@@ -34,6 +34,11 @@ class RelayController:
         instrument.serial.stopbits = stopbits
         instrument.serial.timeout = timeout
         instrument.clear_buffers_before_each_transaction = True
+        logger.info("Configured Modbus RTU port=%s slave_id=%d", port, slave_id)
+        logger.debug(
+            "Modbus serial settings baudrate=%d bytesize=%d parity=%s stopbits=%d timeout=%.2fs",
+            baudrate, bytesize, parity, stopbits, timeout,
+        )
         return cls(instrument, relay_start_register, input_start_register)
 
     def set_relay(self, channel: int, enabled: bool) -> None:
@@ -41,16 +46,21 @@ class RelayController:
         register = self.relay_start_register + channel - 1
         logger.debug("Writing relay channel=%d register=%d enabled=%s", channel, register, enabled)
         self.instrument.write_bit(register, int(enabled), functioncode=5)
+        logger.debug("Relay write completed channel=%d", channel)
 
     def relay_states(self) -> list[bool]:
         logger.debug("Reading relay states from register=%d", self.relay_start_register)
         values = self.instrument.read_bits(self.relay_start_register, self.CHANNELS, functioncode=1)
-        return [bool(value) for value in values]
+        states = [bool(value) for value in values]
+        logger.debug("Relay states read: %s", states)
+        return states
 
     def input_states(self) -> list[bool]:
         logger.debug("Reading digital inputs from register=%d", self.input_start_register)
         values = self.instrument.read_bits(self.input_start_register, self.CHANNELS, functioncode=2)
-        return [bool(value) for value in values]
+        states = [bool(value) for value in values]
+        logger.debug("Digital input states read: %s", states)
+        return states
 
     @classmethod
     def _validate_channel(cls, channel: int) -> None:

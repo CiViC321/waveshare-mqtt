@@ -20,6 +20,57 @@ waveshare-mqtt
 
 Set `LOG_LEVEL=DEBUG` for Modbus and MQTT diagnostics.
 
+## Raspberry Pi remote run and debug
+
+Install Raspberry Pi OS, connect the RS485 adapter, and find its device name:
+
+```bash
+ls -l /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
+```
+
+On the Pi, install Python and the project dependencies:
+
+```bash
+sudo apt update
+sudo apt install -y python3-venv python3-pip
+git clone git@github.com:CiViC321/waveshare-mqtt.git
+cd waveshare-mqtt
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+cp .env.example .env
+```
+
+Edit `.env` on the Pi. At minimum, set `MODBUS_PORT` to the adapter path and `MQTT_HOST` to the broker address, for example:
+
+```env
+MODBUS_PORT=/dev/ttyUSB0
+MQTT_HOST=192.168.1.10
+LOG_LEVEL=DEBUG
+```
+
+Add the Pi user to the serial-device group, then log out and back in:
+
+```bash
+sudo usermod -aG dialout "$USER"
+```
+
+Run the service directly:
+
+```bash
+source .venv/bin/activate
+python -m waveshare_mqtt.main
+```
+
+For interactive remote debugging, install the VS Code **Remote - SSH** and **Python** extensions on your computer. Connect to the Pi with Remote-SSH, open the cloned project folder on the Pi, select `.venv/bin/python` as the interpreter, and press `F5` using the `Debug Waveshare MQTT` profile. Set breakpoints in `main.py`, `mqtt_app.py`, or `hardware.py`. The debugger and code execute on the Pi, so the RS485 adapter remains local to the Pi.
+
+For unattended operation on the Pi, use Docker Compose instead. Set `MODBUS_PORT=/dev/ttyUSB0` in `.env`, then run:
+
+```bash
+RS485_DEVICE=/dev/ttyUSB0 docker compose up -d --build
+docker compose logs -f waveshare-mqtt
+```
+
 ## Docker
 
 On a Linux host with the RS485 adapter available as `/dev/ttyUSB0`:

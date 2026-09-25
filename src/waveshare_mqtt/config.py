@@ -29,7 +29,7 @@ class Settings:
     mqtt_password: str = ""
     mqtt_tls: bool = False
     mqtt_poll_interval: float = 5.0
-    log_level: str = "INFO"
+    log_level: str = "DEBUG"
 
     @classmethod
     def from_environment(cls) -> "Settings":

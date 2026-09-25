@@ -27,10 +27,12 @@ class MqttRelayApp:
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
         self._stop_event = threading.Event()
+        logger.debug("MQTT client initialized client_id=%s tls=%s", settings.mqtt_client_id, settings.mqtt_tls)
 
     def run(self) -> None:
         logger.info("Connecting to MQTT broker %s:%d", self.settings.mqtt_host, self.settings.mqtt_port)
         self.client.connect(self.settings.mqtt_host, self.settings.mqtt_port, self.settings.mqtt_keepalive)
+        logger.debug("Starting MQTT network loop")
         self.client.loop_start()
         try:
             while not self._stop_event.wait(self.settings.mqtt_poll_interval):
@@ -41,6 +43,7 @@ class MqttRelayApp:
             self._stop_event.set()
             self.client.loop_stop()
             self.client.disconnect()
+            logger.info("MQTT bridge stopped")
 
     def stop(self) -> None:
         self._stop_event.set()
@@ -49,6 +52,7 @@ class MqttRelayApp:
         if reason_code != 0:
             logger.error("MQTT connection failed: %s", reason_code)
             return
+        logger.debug("MQTT connected reason_code=%s flags=%s", reason_code, flags)
         topic = f"{self.settings.mqtt_base_topic}/relay/+/set"
         client.subscribe(topic)
         client.subscribe(f"{self.settings.mqtt_base_topic}/relay/all/set")
@@ -59,6 +63,7 @@ class MqttRelayApp:
     def _on_message(self, client: mqtt.Client, userdata: Any, message: mqtt.MQTTMessage) -> None:
         topic = message.topic
         payload = message.payload.decode("utf-8", errors="replace").strip().lower()
+        logger.debug("MQTT message received topic=%s qos=%d retain=%s", topic, message.qos, message.retain)
         prefix = f"{self.settings.mqtt_base_topic}/relay/"
         suffix = "/set"
         try:
@@ -79,9 +84,9 @@ class MqttRelayApp:
     def publish_states(self) -> None:
         try:
             for channel, state in enumerate(self.controller.relay_states(), start=1):
-                self.client.publish(self._topic("relay", channel, "state"), "ON" if state else "OFF", retain=True)
+                self._publish(self._topic("relay", channel, "state"), "ON" if state else "OFF")
             for channel, state in enumerate(self.controller.input_states(), start=1):
-                self.client.publish(self._topic("input", channel, "state"), "ON" if state else "OFF", retain=True)
+                self._publish(self._topic("input", channel, "state"), "ON" if state else "OFF")
             logger.debug("Published relay and input states")
         except Exception:
             logger.exception("Failed to publish Modbus state")
@@ -108,8 +113,15 @@ class MqttRelayApp:
                 "device": device,
             }
             topic = f"{self.settings.mqtt_discovery_prefix}/switch/{unique_id}/config"
-            self.client.publish(topic, json.dumps(payload), retain=True)
+            self._publish(topic, json.dumps(payload))
         logger.info("Published Home Assistant discovery for %d relays", RelayController.CHANNELS)
+
+    def _publish(self, topic: str, payload: str) -> None:
+        result = self.client.publish(topic, payload, retain=True)
+        if result is not None and result.rc != mqtt.MQTT_ERR_SUCCESS:
+            logger.warning("MQTT publish failed topic=%s rc=%s", topic, result.rc)
+        else:
+            logger.debug("MQTT publish queued topic=%s retain=true", topic)
 
     def _topic(self, kind: str, channel: int, name: str) -> str:
         return f"{self.settings.mqtt_base_topic}/{kind}/{channel}/{name}"
