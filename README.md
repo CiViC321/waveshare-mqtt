@@ -73,6 +73,17 @@ docker compose logs -f waveshare-mqtt
 
 ## Docker
 
+### Automatic Docker Hub publishing
+
+GitHub Actions builds and publishes the image after every push to `main`. It also supports manual runs from the repository's **Actions** tab. Before the first run, add these repository secrets under **Settings > Secrets and variables > Actions**:
+
+```text
+DOCKERHUB_USERNAME = your Docker Hub username
+DOCKERHUB_TOKEN = a Docker Hub access token
+```
+
+The Docker Hub repository must be `civic321/waveshare-mqtt`, or update `IMAGE_NAME` in `.github/workflows/docker-publish.yml`. Successful builds publish `latest` and a commit-specific tag.
+
 On a Linux host with the RS485 adapter available as `/dev/ttyUSB0`:
 
 ```bash
