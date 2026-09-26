@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class Instrument(Protocol):
     def write_bit(self, register: int, value: int, functioncode: int = 5) -> None: ...
+    def write_register(self, register: int, value: int, functioncode: int = 6) -> None: ...
     def read_bits(self, register: int, number_of_bits: int, functioncode: int = 1) -> list[int]: ...
     def read_register(self, register: int, number_of_decimals: int = 0,
                       functioncode: int = 3, signed: bool = False) -> int: ...
@@ -51,6 +52,23 @@ class RelayController:
         logger.debug("Writing relay channel=%d register=%d enabled=%s", channel, register, enabled)
         self.instrument.write_bit(register, int(enabled), functioncode=5)
         logger.debug("Relay write completed channel=%d", channel)
+
+    def set_relay_mode(self, channel: int, mode: int) -> None:
+        self._validate_channel(channel)
+        if not 0 <= mode <= 3:
+            raise ValueError("relay mode must be between 0 and 3")
+
+        register = 0x1000 + channel - 1
+        logger.debug("Writing relay mode channel=%d register=%d mode=%d", channel, register, mode)
+        self.instrument.write_register(register, mode, functioncode=6)
+
+    def relay_mode(self, channel: int) -> str:
+        self._validate_channel(channel)
+        register = 0x1000 + channel - 1
+        mode = self.instrument.read_register(register, functioncode=3, signed=False)
+        mode_name = self.mode_name(mode)
+        logger.debug("Read relay mode channel=%d mode=%s", channel, mode_name)
+        return mode_name
 
     def flash_relay(self, channel: int, duration_seconds: float) -> None:
         self._validate_channel(channel)
@@ -94,3 +112,11 @@ class RelayController:
     def _validate_channel(cls, channel: int) -> None:
         if not 1 <= channel <= cls.CHANNELS:
             raise ValueError(f"channel must be between 1 and {cls.CHANNELS}, got {channel}")
+
+    @staticmethod
+    def mode_name(mode: int) -> str:
+        names = {0: "normal", 1: "linkage", 2: "toggle", 3: "edge"}
+        try:
+            return names[mode]
+        except KeyError as exc:
+            raise ValueError(f"unsupported relay mode value: {mode}") from exc

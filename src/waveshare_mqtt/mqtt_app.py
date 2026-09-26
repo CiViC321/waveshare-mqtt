@@ -57,8 +57,10 @@ class MqttRelayApp:
         client.subscribe(topic)
         flash_topic = f"{self.settings.mqtt_base_topic}/relay/+/flash"
         client.subscribe(flash_topic)
+        mode_topic = f"{self.settings.mqtt_base_topic}/relay/+/mode"
+        client.subscribe(mode_topic)
         client.subscribe(f"{self.settings.mqtt_base_topic}/relay/all/set")
-        logger.info("Connected to MQTT; subscribed to %s and %s", topic, flash_topic)
+        logger.info("Connected to MQTT; subscribed to %s, %s, and %s", topic, flash_topic, mode_topic)
         self.publish_home_assistant_discovery()
         self.publish_states()
 
@@ -72,6 +74,13 @@ class MqttRelayApp:
                 target = topic[len(prefix):-len("/flash")]
                 self.controller.flash_relay(int(target), self._parse_duration(payload))
                 logger.info("Flashed relay channel=%s duration=%ss", target, payload)
+            elif topic.endswith("/mode"):
+                target = topic[len(prefix):-len("/mode")]
+                mode = self._parse_mode(payload)
+                channel = int(target)
+                self.controller.set_relay_mode(channel, mode)
+                self._publish_relay_attributes(channel)
+                logger.info("Set relay channel=%s mode=%d", target, mode)
             else:
                 suffix = "/set"
                 target = topic[len(prefix):-len(suffix)]
@@ -118,11 +127,17 @@ class MqttRelayApp:
                 "payload_off": "OFF",
                 "state_on": "ON",
                 "state_off": "OFF",
+                "json_attributes_topic": self._topic("relay", channel, "attributes"),
                 "device": device,
             }
             topic = f"{self.settings.mqtt_discovery_prefix}/switch/{unique_id}/config"
             self._publish(topic, json.dumps(payload))
+            self._publish_relay_attributes(channel)
         logger.info("Published Home Assistant discovery for %d relays", RelayController.CHANNELS)
+
+    def _publish_relay_attributes(self, channel: int) -> None:
+        attributes = {"relay_control_mode": self.controller.relay_mode(channel)}
+        self._publish(self._topic("relay", channel, "attributes"), json.dumps(attributes))
 
     def _publish(self, topic: str, payload: str) -> None:
         result = self.client.publish(topic, payload, retain=True)
@@ -149,3 +164,19 @@ class MqttRelayApp:
         if duration <= 0:
             raise ValueError("duration must be greater than zero")
         return duration
+
+    @staticmethod
+    def _parse_mode(payload: str) -> int:
+        modes = {
+            "normal": 0,
+            "linkage": 1,
+            "toggle": 2,
+            "edge": 3,
+            "edge_trigger": 3,
+        }
+        if payload in modes:
+            return modes[payload]
+        mode = int(payload)
+        if not 0 <= mode <= 3:
+            raise ValueError("relay mode must be 0-3, normal, linkage, toggle, or edge")
+        return mode

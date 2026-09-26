@@ -15,12 +15,19 @@ class FakeClient:
 class FakeController:
     def __init__(self):
         self.flashes = []
+        self.modes = []
 
     def software_version(self):
         return "V2.00"
 
     def flash_relay(self, channel, duration):
         self.flashes.append((channel, duration))
+
+    def set_relay_mode(self, channel, mode):
+        self.modes.append((channel, mode))
+
+    def relay_mode(self, channel):
+        return "toggle"
 
 
 def test_home_assistant_discovery_publishes_eight_switches():
@@ -30,9 +37,13 @@ def test_home_assistant_discovery_publishes_eight_switches():
 
     app.publish_home_assistant_discovery()
 
-    assert len(app.client.published) == 8
+    assert len(app.client.published) == 16
     devices = set()
-    for channel, (topic, payload, retained) in enumerate(app.client.published, start=1):
+    configs = [item for item in app.client.published if "/config" in item[0]]
+    attributes = [item for item in app.client.published if "/attributes" in item[0]]
+    assert len(configs) == 8
+    assert len(attributes) == 8
+    for channel, (topic, payload, retained) in enumerate(configs, start=1):
         config = json.loads(payload)
         assert topic == f"homeassistant/switch/test-relay_relay_{channel}/config"
         assert retained is True
@@ -41,7 +52,13 @@ def test_home_assistant_discovery_publishes_eight_switches():
         assert config["command_topic"] == f"waveshare/relay/{channel}/set"
         assert config["state_topic"] == f"waveshare/relay/{channel}/state"
         assert config["device"]["sw_version"] == "V2.00"
+        assert config["json_attributes_topic"] == f"waveshare/relay/{channel}/attributes"
         devices.add(tuple(config["device"]["identifiers"]))
+
+    for channel, (topic, payload, retained) in enumerate(attributes, start=1):
+        assert topic == f"waveshare/relay/{channel}/attributes"
+        assert json.loads(payload) == {"relay_control_mode": "toggle"}
+        assert retained is True
 
     assert devices == {("test-relay",)}
 
@@ -60,3 +77,19 @@ def test_flash_command_uses_duration_in_seconds():
     app._on_message(None, None, message)
 
     assert controller.flashes == [(3, 1.5)]
+
+
+def test_mode_command_accepts_named_mode():
+    settings = Settings(mqtt_base_topic="waveshare", mqtt_client_id="test-relay")
+    controller = FakeController()
+    app = MqttRelayApp(controller, settings)
+
+    message = type("Message", (), {
+        "topic": "waveshare/relay/3/mode",
+        "payload": b"toggle",
+        "qos": 0,
+        "retain": False,
+    })()
+    app._on_message(None, None, message)
+
+    assert controller.modes == [(3, 2)]

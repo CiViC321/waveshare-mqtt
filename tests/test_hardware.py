@@ -4,11 +4,15 @@ from waveshare_mqtt.hardware import RelayController
 class FakeInstrument:
     def __init__(self):
         self.writes = []
+        self.register_writes = []
         self.register_reads = []
         self.commands = []
 
     def write_bit(self, register, value, functioncode=5):
         self.writes.append((register, value, functioncode))
+
+    def write_register(self, register, value, functioncode=6):
+        self.register_writes.append((register, value, functioncode))
 
     def read_bits(self, register, number_of_bits, functioncode=1):
         assert number_of_bits == 8
@@ -17,7 +21,7 @@ class FakeInstrument:
 
     def read_register(self, register, number_of_decimals=0, functioncode=3, signed=False):
         self.register_reads.append((register, number_of_decimals, functioncode, signed))
-        return 200
+        return 200 if register == 0x8000 else 2
 
     def _perform_command(self, functioncode, payload_to_slave):
         self.commands.append((functioncode, payload_to_slave))
@@ -55,6 +59,21 @@ def test_flash_relay_uses_native_flash_on_command():
     controller.flash_relay(3, 0.7)
 
     assert instrument.commands == [(5, b"\x02\x02\x00\x07")]
+
+
+def test_set_relay_mode_writes_channel_mode_register():
+    instrument = FakeInstrument()
+    controller = RelayController(instrument)
+
+    controller.set_relay_mode(3, 2)
+
+    assert instrument.register_writes == [(0x1002, 2, 6)]
+
+
+def test_reads_relay_control_mode():
+    controller = RelayController(FakeInstrument())
+
+    assert controller.relay_mode(3) == "toggle"
 
 
 def test_invalid_channel_is_rejected():
