@@ -82,7 +82,7 @@ DOCKERHUB_USERNAME = your Docker Hub username
 DOCKERHUB_TOKEN = a Docker Hub access token
 ```
 
-The Docker Hub repository must be `civic321/waveshare-mqtt`, or update `IMAGE_NAME` in `.github/workflows/docker-publish.yml`. Successful builds publish `latest` and a commit-specific tag.
+The Docker Hub repository must be `civic321/waveshare-mqtt`, or update `IMAGE_NAME` in `.github/workflows/docker-publish.yml`. Successful builds publish one multi-platform image for `linux/amd64` and `linux/arm64` under `latest` and a commit-specific tag. Docker automatically selects the correct architecture when pulling the image.
 
 On a Linux host with the RS485 adapter available as `/dev/ttyUSB0`:
 
