@@ -124,7 +124,7 @@ mosquitto_pub -t waveshare/relay/3/flash -m 1.5
 
 The example turns relay 3 on for 1.5 seconds. Supported durations are 0.1 through 3276.7 seconds.
 
-Set a relay's control mode by publishing one of `normal`, `linkage`, `toggle`, or `edge` to its `mode` topic. Numeric values `0` through `3` are also accepted:
+Set a relay's control mode by publishing one of `normal`, `linkage`, `toggle`, or `edge` to its `mode` topic:
 
 ```bash
 mosquitto_pub -t waveshare/relay/3/mode -m toggle

@@ -172,11 +172,7 @@ class MqttRelayApp:
             "linkage": 1,
             "toggle": 2,
             "edge": 3,
-            "edge_trigger": 3,
         }
         if payload in modes:
             return modes[payload]
-        mode = int(payload)
-        if not 0 <= mode <= 3:
-            raise ValueError("relay mode must be 0-3, normal, linkage, toggle, or edge")
-        return mode
+        raise ValueError("relay mode must be normal, linkage, toggle, or edge")

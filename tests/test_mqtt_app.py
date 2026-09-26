@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from waveshare_mqtt.config import Settings
 from waveshare_mqtt.mqtt_app import MqttRelayApp
 
@@ -93,3 +95,8 @@ def test_mode_command_accepts_named_mode():
     app._on_message(None, None, message)
 
     assert controller.modes == [(3, 2)]
+
+
+def test_mode_command_rejects_numeric_payload():
+    with pytest.raises(ValueError):
+        MqttRelayApp._parse_mode("2")
