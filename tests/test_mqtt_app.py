@@ -32,20 +32,22 @@ class FakeController:
         return "toggle"
 
 
-def test_home_assistant_discovery_publishes_eight_switches():
+def test_home_assistant_discovery_publishes_eight_switches_and_eight_binary_sensors():
     settings = Settings(mqtt_base_topic="waveshare", mqtt_client_id="test-relay")
     app = MqttRelayApp(FakeController(), settings)
     app.client = FakeClient()
 
     app.publish_home_assistant_discovery()
 
-    assert len(app.client.published) == 16
+    assert len(app.client.published) == 24
     devices = set()
-    configs = [item for item in app.client.published if "/config" in item[0]]
+    switch_configs = [item for item in app.client.published if "/switch/" in item[0] and "/config" in item[0]]
+    sensor_configs = [item for item in app.client.published if "/binary_sensor/" in item[0] and "/config" in item[0]]
     attributes = [item for item in app.client.published if "/attributes" in item[0]]
-    assert len(configs) == 8
+    assert len(switch_configs) == 8
+    assert len(sensor_configs) == 8
     assert len(attributes) == 8
-    for channel, (topic, payload, retained) in enumerate(configs, start=1):
+    for channel, (topic, payload, retained) in enumerate(switch_configs, start=1):
         config = json.loads(payload)
         assert topic == f"homeassistant/switch/test-relay_relay_{channel}/config"
         assert retained is True
@@ -56,6 +58,17 @@ def test_home_assistant_discovery_publishes_eight_switches():
         assert config["device"]["sw_version"] == "V2.00"
         assert config["json_attributes_topic"] == f"waveshare/relay/{channel}/attributes"
         devices.add(tuple(config["device"]["identifiers"]))
+
+    for channel, (topic, payload, retained) in enumerate(sensor_configs, start=1):
+        config = json.loads(payload)
+        assert topic == f"homeassistant/binary_sensor/test-relay_input_{channel}/config"
+        assert retained is True
+        assert config["name"] == f"Input {channel}"
+        assert config["unique_id"] == f"test-relay_input_{channel}"
+        assert config["state_topic"] == f"waveshare/input/{channel}/state"
+        assert config["payload_on"] == "ON"
+        assert config["payload_off"] == "OFF"
+        assert config["device"]["sw_version"] == "V2.00"
 
     for channel, (topic, payload, retained) in enumerate(attributes, start=1):
         assert topic == f"waveshare/relay/{channel}/attributes"

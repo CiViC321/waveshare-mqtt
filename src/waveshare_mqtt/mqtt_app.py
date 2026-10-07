@@ -108,7 +108,7 @@ class MqttRelayApp:
             logger.exception("Failed to publish Modbus state")
 
     def publish_home_assistant_discovery(self) -> None:
-        """Publish retained MQTT Discovery configs for all relay channels."""
+        """Publish retained MQTT Discovery configs for all relay channels and inputs."""
         device = {
             "identifiers": [self.settings.mqtt_client_id],
             "name": "Waveshare 8-Channel Relay",
@@ -133,7 +133,21 @@ class MqttRelayApp:
             topic = f"{self.settings.mqtt_discovery_prefix}/switch/{unique_id}/config"
             self._publish(topic, json.dumps(payload))
             self._publish_relay_attributes(channel)
-        logger.info("Published Home Assistant discovery for %d relays", RelayController.CHANNELS)
+
+            input_unique_id = f"{self.settings.mqtt_client_id}_input_{channel}"
+            input_payload = {
+                "name": f"Input {channel}",
+                "unique_id": input_unique_id,
+                "state_topic": self._topic("input", channel, "state"),
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "state_on": "ON",
+                "state_off": "OFF",
+                "device": device,
+            }
+            input_topic = f"{self.settings.mqtt_discovery_prefix}/binary_sensor/{input_unique_id}/config"
+            self._publish(input_topic, json.dumps(input_payload))
+        logger.info("Published Home Assistant discovery for %d relays and %d inputs", RelayController.CHANNELS, RelayController.CHANNELS)
 
     def _publish_relay_attributes(self, channel: int) -> None:
         attributes = {"relay_control_mode": self.controller.relay_mode(channel)}

@@ -10,6 +10,22 @@
             "envFile": "${workspaceFolder}/.env",
             "console": "integratedTerminal",
             "justMyCode": true
-        }
+        },
+        {
+            "name": "Python: Attach to SolarPi debugpy",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "solarpi.localnet",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                "localRoot": "${workspaceFolder}",
+                "remoteRoot": "/home/petri/code/waveshare-mqtt"
+                }
+            ],
+            "justMyCode": true
+            }
     ]
 }
