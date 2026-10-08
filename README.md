@@ -2,6 +2,8 @@
 
 A small Python service for controlling a Waveshare Modbus RTU 8-channel relay module (D) with digital inputs over RS485. It uses [Paho MQTT](https://eclipse.dev/paho/) and [MinimalModbus](https://minimalmodbus.readthedocs.io/).
 
+Hardware reference: [Waveshare Modbus RTU Relay (D) wiki](https://www.waveshare.com/wiki/Modbus_RTU_Relay_(D)).
+
 ## Install
 
 ```powershell

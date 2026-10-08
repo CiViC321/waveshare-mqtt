@@ -86,8 +86,7 @@ class MqttRelayApp:
                 target = topic[len(prefix):-len(suffix)]
                 enabled = self._parse_state(payload)
                 if target == "all":
-                    for channel in range(1, RelayController.CHANNELS + 1):
-                        self.controller.set_relay(channel, enabled)
+                    self.controller.set_all_relays(enabled)
                 else:
                     self.controller.set_relay(int(target), enabled)
                 logger.info("Set relay target=%s enabled=%s", target, enabled)

@@ -53,6 +53,12 @@ class RelayController:
         self.instrument.write_bit(register, int(enabled), functioncode=5)
         logger.debug("Relay write completed channel=%d", channel)
 
+    def set_all_relays(self, enabled: bool) -> None:
+        register = 0x00FF
+        logger.debug("Writing all relays register=%d enabled=%s using function 05", register, enabled)
+        self.instrument.write_bit(register, int(enabled), functioncode=5)
+        logger.debug("All relay write completed enabled=%s", enabled)
+
     def set_relay_mode(self, channel: int, mode: int) -> None:
         self._validate_channel(channel)
         if not 0 <= mode <= 3:

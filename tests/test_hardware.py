@@ -37,6 +37,15 @@ def test_set_relay_uses_one_based_channel_and_function_05():
     assert instrument.writes == [(12, 1, 5)]
 
 
+def test_set_all_relays_uses_single_function_05_write_to_special_all_register():
+    instrument = FakeInstrument()
+    controller = RelayController(instrument, relay_start_register=10)
+
+    controller.set_all_relays(False)
+
+    assert instrument.writes == [(0x00FF, 0, 5)]
+
+
 def test_reads_return_eight_boolean_states():
     controller = RelayController(FakeInstrument())
 
